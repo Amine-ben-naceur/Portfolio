@@ -15,7 +15,7 @@ import { PROJECTS } from "@/lib/data";
 
 const TARGET_SIZE = 16; 
 const SCALE_DAMP = 5;
-const HOVER_Y = 18;     // FIX: Lifted them up slightly to clear the planet surface
+const HOVER_Y = 18;     
 
 const REVERSE_ALPHAS = true; 
 
@@ -64,7 +64,8 @@ function GLBManifest({
   url,
   alphaRef,
   speed = 0.2,
-  baseRotation = [0, 0, 0],
+  // FIX: Cast to tuple to satisfy Vercel's strict TS check
+  baseRotation = [0, 0, 0] as [number, number, number],
   tintColor = null,
 }: {
   url: string;
@@ -103,11 +104,17 @@ function GLBManifest({
             if (!mat) return;
             
             const isDark = mat.color && (mat.color.r + mat.color.g + mat.color.b) < 0.3;
+            const hasMap = "map" in mat && mat.map;
             
-            if (!isDark && !mat.map) {
+            // FIX: Safely check if emissive exists before assigning to it
+            if (!isDark && !hasMap) {
               mat.color = new THREE.Color(tintColor);
-              mat.emissive = new THREE.Color(tintColor);
-              mat.emissiveIntensity = 0.1; 
+              
+              if ("emissive" in mat) {
+                (mat as THREE.MeshStandardMaterial).emissive = new THREE.Color(tintColor);
+                (mat as THREE.MeshStandardMaterial).emissiveIntensity = 0.1; 
+              }
+              
               mat.needsUpdate = true;
             }
           });
@@ -183,7 +190,11 @@ function ImageManifest({
 
   const planeArgs = useMemo(() => {
     if (!texture || !texture.image) return [TARGET_SIZE, TARGET_SIZE] as [number, number];
-    const aspect = texture.image.width / texture.image.height;
+    
+    // FIX: Safely cast image to HTMLImageElement to access width/height
+    const img = texture.image as HTMLImageElement;
+    const aspect = img.width / img.height;
+    
     if (aspect > 1) {
       return [TARGET_SIZE, TARGET_SIZE / aspect] as [number, number];
     } else {
